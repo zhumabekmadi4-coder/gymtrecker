@@ -205,27 +205,30 @@ export const workoutDays: WorkoutDay[] = [
 ];
 
 export const achievements = [
-  { id: "first_workout", name: "Первый шаг", description: "Завершить первую тренировку", icon: "🏋️", xp: 50, condition: (completed: number) => completed >= 1 },
-  { id: "streak_3", name: "На волне", description: "3 тренировки подряд", icon: "🔥", xp: 100, condition: (completed: number, streak: number) => streak >= 3 },
-  { id: "streak_7", name: "Неделя огня", description: "7 тренировок подряд", icon: "💪", xp: 250, condition: (completed: number, streak: number) => streak >= 7 },
-  { id: "streak_14", name: "Железная воля", description: "14 тренировок подряд", icon: "⚡", xp: 500, condition: (completed: number, streak: number) => streak >= 14 },
-  { id: "half_program", name: "Половина пути", description: "Завершить 6 тренировок", icon: "🎯", xp: 200, condition: (completed: number) => completed >= 6 },
-  { id: "full_program", name: "Программа пройдена", description: "Завершить все 12 тренировок", icon: "🏆", xp: 1000, condition: (completed: number) => completed >= 12 },
-  { id: "weight_up_5", name: "Прогресс!", description: "Увеличить вес в 5 упражнениях", icon: "📈", xp: 150, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 5 },
-  { id: "weight_up_20", name: "Машина", description: "Увеличить вес в 20 упражнениях", icon: "🦾", xp: 400, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 20 },
-  { id: "two_cycles", name: "Второй круг", description: "Завершить 24 тренировки (2 цикла)", icon: "🔄", xp: 1500, condition: (completed: number) => completed >= 24 },
-  { id: "three_cycles", name: "Легенда зала", description: "Завершить 36 тренировок (3 цикла)", icon: "👑", xp: 3000, condition: (completed: number) => completed >= 36 },
+  { id: "first_workout", name: "Первый шаг", description: "Завершить первую тренировку", icon: "🏋️", xp: 30, condition: (completed: number) => completed >= 1 },
+  { id: "streak_3", name: "На волне", description: "3 тренировки без пропуска", icon: "🔥", xp: 50, condition: (_c: number, streak: number) => streak >= 3 },
+  { id: "streak_9", name: "Неделя за неделей", description: "9 тренировок подряд (3 недели)", icon: "💪", xp: 150, condition: (_c: number, streak: number) => streak >= 9 },
+  { id: "streak_24", name: "Железная воля", description: "24 тренировки подряд (2 месяца)", icon: "⚡", xp: 400, condition: (_c: number, streak: number) => streak >= 24 },
+  { id: "half_program", name: "Половина пути", description: "Завершить 6 тренировок", icon: "🎯", xp: 80, condition: (completed: number) => completed >= 6 },
+  { id: "full_program", name: "Первый цикл", description: "Завершить все 12 тренировок", icon: "🏆", xp: 200, condition: (completed: number) => completed >= 12 },
+  { id: "weight_up_5", name: "Прогресс!", description: "Увеличить вес в 5 упражнениях", icon: "📈", xp: 100, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 5 },
+  { id: "weight_up_20", name: "Машина", description: "Увеличить вес в 20 упражнениях", icon: "🦾", xp: 300, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 20 },
+  { id: "two_cycles", name: "Второй круг", description: "Завершить 24 тренировки (2 цикла)", icon: "🔄", xp: 400, condition: (completed: number) => completed >= 24 },
+  { id: "three_cycles", name: "Легенда зала", description: "Завершить 36 тренировок (3 цикла)", icon: "👑", xp: 600, condition: (completed: number) => completed >= 36 },
+  { id: "five_cycles", name: "Образ жизни", description: "60 тренировок (5 циклов, ~5 месяцев)", icon: "🧬", xp: 1000, condition: (completed: number) => completed >= 60 },
+  { id: "weight_up_50", name: "Трансформация", description: "Увеличить вес в 50 упражнениях", icon: "🔱", xp: 800, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 50 },
 ];
 
+// ~25-35 XP per workout base, levels spread across months
 export const levels = [
   { level: 1, title: "Новичок", minXp: 0 },
-  { level: 2, title: "Начинающий", minXp: 100 },
-  { level: 3, title: "Любитель", minXp: 300 },
-  { level: 4, title: "Регулярный", minXp: 600 },
-  { level: 5, title: "Продвинутый", minXp: 1000 },
-  { level: 6, title: "Опытный", minXp: 1500 },
-  { level: 7, title: "Сильный", minXp: 2200 },
-  { level: 8, title: "Мощный", minXp: 3000 },
-  { level: 9, title: "Элитный", minXp: 4000 },
-  { level: 10, title: "Легенда", minXp: 5500 },
+  { level: 2, title: "Начинающий", minXp: 150 },     // ~4-5 тренировок
+  { level: 3, title: "Любитель", minXp: 400 },        // ~2 недели
+  { level: 4, title: "Регулярный", minXp: 800 },      // ~1 месяц
+  { level: 5, title: "Продвинутый", minXp: 1400 },    // ~2 месяца
+  { level: 6, title: "Опытный", minXp: 2200 },        // ~3 месяца
+  { level: 7, title: "Сильный", minXp: 3200 },        // ~4 месяца
+  { level: 8, title: "Мощный", minXp: 4500 },         // ~5 месяцев
+  { level: 9, title: "Элитный", minXp: 6000 },        // ~7 месяцев
+  { level: 10, title: "Легенда", minXp: 8000 },       // ~9+ месяцев
 ];

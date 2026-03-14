@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, use } from "react";
-import { useRouter } from "next/navigation";
 import { useStorage, ExerciseLog } from "../../hooks/useStorage";
 import { workoutDays } from "../../data/workouts";
 import Link from "next/link";
 
 interface ExerciseState {
   exerciseId: string;
+  exerciseName: string;
   sets: { done: boolean; reps: string; weight: string }[];
   actualWeight: string;
 }
@@ -16,8 +16,7 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
   const { day } = use(params);
   const dayNum = parseInt(day);
   const workout = workoutDays.find((w) => w.day === dayNum);
-  const { state, loaded, completeWorkout } = useStorage();
-  const router = useRouter();
+  const { state, loaded, completeWorkout, getExerciseHistory } = useStorage();
   const [exerciseStates, setExerciseStates] = useState<ExerciseState[]>([]);
   const [started, setStarted] = useState(false);
   const [showComplete, setShowComplete] = useState(false);
@@ -39,10 +38,16 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
     const initial = workout.exercises.map((ex) => {
       const setsMatch = ex.sets.match(/(\d+)[×x*]/);
       const numSets = setsMatch ? parseInt(setsMatch[1]) : 3;
+
+      // Pre-fill weight from last time this exercise was done
+      const history = getExerciseHistory(ex.name);
+      const lastWeight = history.length > 0 ? history[history.length - 1].weight : ex.weight;
+
       return {
         exerciseId: ex.id,
+        exerciseName: ex.name,
         sets: Array.from({ length: numSets }, () => ({ done: false, reps: "", weight: "" })),
-        actualWeight: ex.weight,
+        actualWeight: lastWeight || ex.weight,
       };
     });
     setExerciseStates(initial);
@@ -97,6 +102,7 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
   const handleComplete = () => {
     const logs: ExerciseLog[] = exerciseStates.map((ex) => ({
       exerciseId: ex.exerciseId,
+      exerciseName: ex.exerciseName,
       sets: ex.sets.map((s) => ({
         reps: parseInt(s.reps) || 0,
         weight: s.weight,
@@ -114,7 +120,7 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
     };
 
     completeWorkout(log);
-    setEarnedXp(50 + (state.streak + 1) * 10);
+    setEarnedXp(25 + Math.min(state.streak + 1, 10) * 5);
     setShowComplete(true);
   };
 
@@ -167,43 +173,64 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
         )}
 
         <div className="space-y-3 mb-6">
-          {workout.exercises.map((ex, i) => (
-            <div key={ex.id} className="bg-card rounded-xl p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1">
-                  <div className="flex items-center gap-2">
-                    {ex.superset && (
-                      <span className="text-xs bg-primary/20 text-primary-light px-2 py-0.5 rounded-full font-medium">
-                        {ex.superset}
-                      </span>
+          {workout.exercises.map((ex, i) => {
+            const history = getExerciseHistory(ex.name);
+            const lastEntry = history.length > 0 ? history[history.length - 1] : null;
+
+            return (
+              <div key={ex.id} className="bg-card rounded-xl p-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      {ex.superset && (
+                        <span className="text-xs bg-primary/20 text-primary-light px-2 py-0.5 rounded-full font-medium">
+                          {ex.superset}
+                        </span>
+                      )}
+                      <span className="text-muted text-xs">#{i + 1}</span>
+                    </div>
+                    <p className="font-medium mt-1">{ex.name}</p>
+                    <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted">
+                      <span>{ex.sets}</span>
+                      {ex.weight && <span>{ex.weight}</span>}
+                      {ex.rest && <span>Отдых: {ex.rest}</span>}
+                    </div>
+                    {ex.comment && (
+                      <p className="text-xs text-warning mt-2">{ex.comment}</p>
                     )}
-                    <span className="text-muted text-xs">#{i + 1}</span>
+
+                    {lastEntry && (
+                      <div className="mt-2 bg-primary/5 border border-primary/10 rounded-lg px-3 py-2">
+                        <p className="text-xs text-muted mb-1">
+                          Прошлый раз (день {lastEntry.day}, {new Date(lastEntry.date).toLocaleDateString("ru-RU")}):
+                        </p>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-primary-light">
+                            {lastEntry.weight || "б/в"}
+                          </span>
+                          <span className="text-xs text-muted">
+                            {lastEntry.sets.filter((s) => s.done).length}/{lastEntry.sets.length} подходов
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
-                  <p className="font-medium mt-1">{ex.name}</p>
-                  <div className="flex flex-wrap gap-3 mt-2 text-sm text-muted">
-                    <span>{ex.sets}</span>
-                    {ex.weight && <span>{ex.weight}</span>}
-                    {ex.rest && <span>Отдых: {ex.rest}</span>}
-                  </div>
-                  {ex.comment && (
-                    <p className="text-xs text-warning mt-2">{ex.comment}</p>
+                  {ex.videoUrl && (
+                    <a
+                      href={ex.videoUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="shrink-0 ml-3 w-10 h-10 bg-danger/20 rounded-lg flex items-center justify-center"
+                    >
+                      <svg className="w-5 h-5 text-danger" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                      </svg>
+                    </a>
                   )}
                 </div>
-                {ex.videoUrl && (
-                  <a
-                    href={ex.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="shrink-0 ml-3 w-10 h-10 bg-danger/20 rounded-lg flex items-center justify-center"
-                  >
-                    <svg className="w-5 h-5 text-danger" fill="currentColor" viewBox="0 0 24 24">
-                      <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                    </svg>
-                  </a>
-                )}
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <button
@@ -218,7 +245,6 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
 
   return (
     <div className="animate-slide-up">
-      {/* Progress header */}
       <div className="sticky top-0 bg-background/95 backdrop-blur-sm pb-3 pt-1 z-10">
         <div className="flex items-center justify-between mb-2">
           <h1 className="text-lg font-bold">День {dayNum}</h1>
@@ -239,7 +265,6 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
         </div>
       </div>
 
-      {/* Rest timer buttons */}
       <div className="flex gap-2 mb-4">
         {[30, 45, 60, 90].map((sec) => (
           <button
@@ -254,12 +279,13 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
         ))}
       </div>
 
-      {/* Exercise list */}
       <div className="space-y-3 mb-6">
         {workout.exercises.map((ex, exIdx) => {
           const exState = exerciseStates[exIdx];
           const allDone = exState?.sets.every((s) => s.done);
           const isExpanded = expandedExercise === ex.id;
+          const history = getExerciseHistory(ex.name);
+          const lastEntry = history.length > 0 ? history[history.length - 1] : null;
 
           return (
             <div
@@ -291,7 +317,7 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
                     <p className={`font-medium text-sm truncate ${allDone ? "text-success" : ""}`}>
                       {ex.name}
                     </p>
-                    <p className="text-xs text-muted">{ex.sets} · {ex.weight || "б/в"}</p>
+                    <p className="text-xs text-muted">{ex.sets} · {exState?.actualWeight || ex.weight || "б/в"}</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-2 shrink-0">
@@ -328,8 +354,41 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
                     </p>
                   )}
 
+                  {lastEntry && (
+                    <div className="bg-primary/5 border border-primary/10 rounded-lg px-3 py-2.5">
+                      <p className="text-xs text-muted mb-1.5 font-medium">
+                        Прошлый раз (день {lastEntry.day}, {new Date(lastEntry.date).toLocaleDateString("ru-RU")}):
+                      </p>
+                      <div className="flex items-center gap-4">
+                        <span className="text-sm font-bold text-primary-light">
+                          {lastEntry.weight || "б/в"}
+                        </span>
+                        <span className="text-xs text-muted">
+                          {lastEntry.sets.filter((s) => s.done).length}/{lastEntry.sets.length} подходов
+                        </span>
+                      </div>
+                      {history.length > 1 && (
+                        <div className="mt-2 flex items-center gap-2 overflow-x-auto">
+                          <span className="text-xs text-muted shrink-0">История:</span>
+                          {history.slice(-5).map((h, i) => (
+                            <span
+                              key={i}
+                              className={`text-xs px-2 py-0.5 rounded shrink-0 ${
+                                i < history.slice(-5).length - 1 && history.slice(-5)[i + 1]?.weight > h.weight
+                                  ? "text-success bg-success/10"
+                                  : "text-muted bg-background"
+                              }`}
+                            >
+                              {h.weight || "б/в"}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   <div className="flex items-center gap-2">
-                    <label className="text-xs text-muted">Вес:</label>
+                    <label className="text-xs text-muted shrink-0">Вес сегодня:</label>
                     <input
                       type="text"
                       value={exState.actualWeight}
@@ -376,7 +435,6 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
         })}
       </div>
 
-      {/* Complete button */}
       <button
         onClick={handleComplete}
         disabled={progress < 50}

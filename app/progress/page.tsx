@@ -18,16 +18,16 @@ export default function ProgressPage() {
   const level = getLevel();
   const completedLogs = state.workoutLogs.filter((w) => w.completed);
 
-  // Build weight progression data per exercise
+  // Build weight progression data per exercise (by name, not ID)
   const exerciseProgress: Record<string, { name: string; weights: { date: string; weight: string }[] }> = {};
   for (const log of completedLogs) {
     for (const ex of log.exercises) {
-      const exerciseData = workoutDays.flatMap((d) => d.exercises).find((e) => e.id === ex.exerciseId);
-      if (!exerciseData || !ex.actualWeight) continue;
-      if (!exerciseProgress[exerciseData.name]) {
-        exerciseProgress[exerciseData.name] = { name: exerciseData.name, weights: [] };
+      const name = ex.exerciseName || workoutDays.flatMap((d) => d.exercises).find((e) => e.id === ex.exerciseId)?.name;
+      if (!name || !ex.actualWeight) continue;
+      if (!exerciseProgress[name]) {
+        exerciseProgress[name] = { name, weights: [] };
       }
-      exerciseProgress[exerciseData.name].weights.push({
+      exerciseProgress[name].weights.push({
         date: new Date(log.date).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }),
         weight: ex.actualWeight,
       });

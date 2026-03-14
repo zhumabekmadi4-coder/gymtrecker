@@ -42,17 +42,18 @@ export default function AchievementsPage() {
       <div className="space-y-3 mb-8">
         {achievements.map((ach) => {
           const unlocked = state.unlockedAchievements.includes(ach.id);
-          // Calculate progress toward achievement
           let progressPercent = 0;
-          if (ach.id.includes("workout") || ach.id.includes("program") || ach.id.includes("cycle") || ach.id === "half_program") {
-            const target = ach.id === "first_workout" ? 1 : ach.id === "half_program" ? 6 : ach.id === "full_program" ? 12 : ach.id === "two_cycles" ? 24 : 36;
-            progressPercent = Math.min((completedCount / target) * 100, 100);
-          } else if (ach.id.includes("streak")) {
-            const target = ach.id === "streak_3" ? 3 : ach.id === "streak_7" ? 7 : 14;
-            progressPercent = Math.min((state.streak / target) * 100, 100);
-          } else if (ach.id.includes("weight")) {
-            const target = ach.id === "weight_up_5" ? 5 : 20;
-            progressPercent = Math.min((state.weightUps / target) * 100, 100);
+          const targetMap: Record<string, [number, "completed" | "streak" | "weight"]> = {
+            first_workout: [1, "completed"], half_program: [6, "completed"],
+            full_program: [12, "completed"], two_cycles: [24, "completed"],
+            three_cycles: [36, "completed"], five_cycles: [60, "completed"],
+            streak_3: [3, "streak"], streak_9: [9, "streak"], streak_24: [24, "streak"],
+            weight_up_5: [5, "weight"], weight_up_20: [20, "weight"], weight_up_50: [50, "weight"],
+          };
+          const tm = targetMap[ach.id];
+          if (tm) {
+            const val = tm[1] === "completed" ? completedCount : tm[1] === "streak" ? state.streak : state.weightUps;
+            progressPercent = Math.min((val / tm[0]) * 100, 100);
           }
 
           return (

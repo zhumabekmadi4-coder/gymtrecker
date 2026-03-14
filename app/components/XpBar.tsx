@@ -13,7 +13,7 @@ export default function XpBar({ level, title, xp, progress, nextLevel }: XpBarPr
     <div className="bg-card rounded-2xl p-4 mb-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-3">
-          <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center text-xl font-bold">
+          <div className="w-12 h-12 rounded-xl bg-primary text-white flex items-center justify-center text-xl font-bold">
             {level}
           </div>
           <div>
