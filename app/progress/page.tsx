@@ -68,12 +68,12 @@ export default function ProgressPage() {
       {/* Stats cards */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-card rounded-xl p-4">
-          <p className="text-3xl font-bold text-primary-light">{completedLogs.length}</p>
-          <p className="text-muted text-sm">Тренировок всего</p>
+          <p className="text-3xl font-bold text-primary-light">{completedLogs.filter(l => l.type !== "recovery").length}</p>
+          <p className="text-muted text-sm">Основных тренировок</p>
         </div>
         <div className="bg-card rounded-xl p-4">
           <p className="text-3xl font-bold text-warning">{state.streak}</p>
-          <p className="text-muted text-sm">Текущая серия</p>
+          <p className="text-muted text-sm">Недель подряд (3+/нед)</p>
         </div>
         <div className="bg-card rounded-xl p-4">
           <p className="text-3xl font-bold text-success">{state.weightUps}</p>

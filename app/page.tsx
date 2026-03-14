@@ -6,7 +6,7 @@ import XpBar from "./components/XpBar";
 import Link from "next/link";
 
 export default function Home() {
-  const { state, loaded, getLevel } = useStorage();
+  const { state, loaded, getLevel, getThisWeekMainCount } = useStorage();
 
   if (!loaded) {
     return (
@@ -17,9 +17,11 @@ export default function Home() {
   }
 
   const level = getLevel();
-  const completedCount = state.workoutLogs.filter((w) => w.completed).length;
-  const currentCycle = Math.floor(completedCount / 12) + 1;
+  const mainCount = state.workoutLogs.filter((w) => w.completed && w.type !== "recovery").length;
+  const recoveryCount = state.workoutLogs.filter((w) => w.completed && w.type === "recovery").length;
+  const currentCycle = Math.floor(mainCount / 12) + 1;
   const currentDayInCycle = ((state.currentDay - 1) % 12) + 1;
+  const thisWeekMain = getThisWeekMainCount();
 
   return (
     <div className="animate-slide-up">
@@ -32,7 +34,7 @@ export default function Home() {
           {state.streak > 0 && (
             <div className="bg-card px-3 py-1.5 rounded-full flex items-center gap-1.5">
               <span className="text-lg">🔥</span>
-              <span className="font-bold text-sm">{state.streak}</span>
+              <span className="font-bold text-sm">{state.streak} нед.</span>
             </div>
           )}
         </div>
@@ -46,8 +48,30 @@ export default function Home() {
         nextLevel={level.nextLevel}
       />
 
-      <div className="mb-6">
-        <h2 className="text-lg font-bold mb-3">Следующая тренировка</h2>
+      {/* Weekly progress */}
+      <div className="bg-card rounded-xl p-4 mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-sm font-medium">Эта неделя</p>
+          <p className="text-xs text-muted">{thisWeekMain}/3 основных</p>
+        </div>
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map((i) => (
+            <div
+              key={i}
+              className={`flex-1 h-2 rounded-full transition-all ${
+                i < thisWeekMain ? "bg-success" : "bg-border"
+              }`}
+            />
+          ))}
+        </div>
+        {thisWeekMain >= 3 && (
+          <p className="text-success text-xs font-medium mt-2">Норма выполнена! Серия продолжается</p>
+        )}
+      </div>
+
+      {/* Next main workout */}
+      <div className="mb-4">
+        <h2 className="text-lg font-bold mb-3">Основная тренировка</h2>
         <Link
           href={`/workout/${currentDayInCycle}`}
           className="block bg-gradient-to-r from-primary/20 to-primary/5 border border-primary/30 rounded-2xl p-5 animate-pulse-glow"
@@ -90,11 +114,38 @@ export default function Home() {
         </Link>
       </div>
 
+      {/* Recovery */}
+      <div className="mb-6">
+        <Link
+          href="/recovery"
+          className="block bg-card rounded-2xl p-4 hover:bg-card-hover transition-colors"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-success/10 rounded-xl flex items-center justify-center">
+                <span className="text-lg">🧘</span>
+              </div>
+              <div>
+                <p className="font-medium">Восстановление</p>
+                <p className="text-muted text-xs">Кардио, растяжка, мобильность</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-xp font-medium">+8-10 XP</span>
+              <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        </Link>
+      </div>
+
+      {/* All days */}
       <h2 className="text-lg font-bold mb-3">Все тренировки</h2>
       <div className="grid grid-cols-3 gap-3">
         {workoutDays.map((day) => {
           const completions = state.workoutLogs.filter(
-            (w) => w.day === day.day && w.completed
+            (w) => w.day === day.day && w.completed && w.type !== "recovery"
           ).length;
           const isCurrent = day.day === currentDayInCycle;
           return (
@@ -119,18 +170,23 @@ export default function Home() {
         })}
       </div>
 
-      <div className="grid grid-cols-3 gap-3 mt-6">
+      {/* Stats */}
+      <div className="grid grid-cols-4 gap-2 mt-6">
         <div className="bg-card rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-primary-light">{completedCount}</p>
-          <p className="text-muted text-xs">Тренировок</p>
+          <p className="text-xl font-bold text-primary-light">{mainCount}</p>
+          <p className="text-muted text-[10px]">Основных</p>
         </div>
         <div className="bg-card rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-warning">{state.streak}</p>
-          <p className="text-muted text-xs">Серия</p>
+          <p className="text-xl font-bold text-success">{recoveryCount}</p>
+          <p className="text-muted text-[10px]">Восстан.</p>
         </div>
         <div className="bg-card rounded-xl p-3 text-center">
-          <p className="text-2xl font-bold text-success">{state.unlockedAchievements.length}</p>
-          <p className="text-muted text-xs">Награды</p>
+          <p className="text-xl font-bold text-warning">{state.streak}</p>
+          <p className="text-muted text-[10px]">Нед. подряд</p>
+        </div>
+        <div className="bg-card rounded-xl p-3 text-center">
+          <p className="text-xl font-bold text-xp">{state.unlockedAchievements.length}</p>
+          <p className="text-muted text-[10px]">Награды</p>
         </div>
       </div>
     </div>

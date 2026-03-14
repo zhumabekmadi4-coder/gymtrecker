@@ -206,9 +206,9 @@ export const workoutDays: WorkoutDay[] = [
 
 export const achievements = [
   { id: "first_workout", name: "Первый шаг", description: "Завершить первую тренировку", icon: "🏋️", xp: 30, condition: (completed: number) => completed >= 1 },
-  { id: "streak_3", name: "На волне", description: "3 тренировки без пропуска", icon: "🔥", xp: 50, condition: (_c: number, streak: number) => streak >= 3 },
-  { id: "streak_9", name: "Неделя за неделей", description: "9 тренировок подряд (3 недели)", icon: "💪", xp: 150, condition: (_c: number, streak: number) => streak >= 9 },
-  { id: "streak_24", name: "Железная воля", description: "24 тренировки подряд (2 месяца)", icon: "⚡", xp: 400, condition: (_c: number, streak: number) => streak >= 24 },
+  { id: "streak_3", name: "На волне", description: "3 недели по 3+ тренировки", icon: "🔥", xp: 50, condition: (_c: number, streak: number) => streak >= 3 },
+  { id: "streak_9", name: "Неделя за неделей", description: "9 недель стабильных тренировок", icon: "💪", xp: 150, condition: (_c: number, streak: number) => streak >= 9 },
+  { id: "streak_24", name: "Железная воля", description: "24 недели без пропусков (~6 месяцев)", icon: "⚡", xp: 400, condition: (_c: number, streak: number) => streak >= 24 },
   { id: "half_program", name: "Половина пути", description: "Завершить 6 тренировок", icon: "🎯", xp: 80, condition: (completed: number) => completed >= 6 },
   { id: "full_program", name: "Первый цикл", description: "Завершить все 12 тренировок", icon: "🏆", xp: 200, condition: (completed: number) => completed >= 12 },
   { id: "weight_up_5", name: "Прогресс!", description: "Увеличить вес в 5 упражнениях", icon: "📈", xp: 100, condition: (_c: number, _s: number, weightUps: number) => weightUps >= 5 },

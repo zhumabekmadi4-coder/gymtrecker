@@ -117,6 +117,7 @@ export default function WorkoutPage({ params }: { params: Promise<{ day: string 
       exercises: logs,
       completed: true,
       totalXp: 0,
+      type: "main" as const,
     };
 
     completeWorkout(log);

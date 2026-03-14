@@ -22,6 +22,8 @@ export interface WorkoutLog {
   exercises: ExerciseLog[];
   completed: boolean;
   totalXp: number;
+  type: "main" | "recovery";
+  recoveryId?: string;
 }
 
 export interface UserState {
@@ -51,12 +53,65 @@ const DEFAULT_STATE: UserState = {
   weightUps: 0,
 };
 
-const MAX_STREAK_GAP_DAYS = 3;
+// Get ISO week number (Mon=start)
+function getWeekKey(dateStr: string): string {
+  const d = new Date(dateStr);
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1); // Monday
+  const monday = new Date(d.setDate(diff));
+  return monday.toISOString().split("T")[0];
+}
 
-function daysBetween(dateA: string, dateB: string): number {
-  const a = new Date(dateA);
-  const b = new Date(dateB);
-  return Math.floor(Math.abs(b.getTime() - a.getTime()) / 86400000);
+// Count consecutive weeks with 3+ main workouts, ending at current week
+function calculateWeekStreak(logs: WorkoutLog[]): number {
+  const mainLogs = logs.filter((l) => l.completed && l.type !== "recovery");
+  if (mainLogs.length === 0) return 0;
+
+  // Group by week
+  const weekCounts: Record<string, number> = {};
+  for (const log of mainLogs) {
+    const week = getWeekKey(log.date);
+    weekCounts[week] = (weekCounts[week] || 0) + 1;
+  }
+
+  // Get sorted weeks descending
+  const weeks = Object.keys(weekCounts).sort().reverse();
+  if (weeks.length === 0) return 0;
+
+  // Current week might not have 3 yet — check if it's the active week
+  const currentWeek = getWeekKey(new Date().toISOString());
+  let streak = 0;
+
+  // Start from current week or most recent completed week
+  let checkIdx = 0;
+  if (weeks[0] === currentWeek) {
+    // Current week in progress — count it if already has 3+, otherwise skip it and start from last week
+    if (weekCounts[currentWeek] >= 3) {
+      streak = 1;
+      checkIdx = 1;
+    } else {
+      // Current week doesn't count yet, start checking from previous week
+      checkIdx = 1;
+    }
+  }
+
+  // Count consecutive past weeks with 3+
+  for (let i = checkIdx; i < weeks.length; i++) {
+    if (weekCounts[weeks[i]] >= 3) {
+      // Check it's actually consecutive (7 days gap from previous)
+      if (i > checkIdx) {
+        const prevWeek = new Date(weeks[i - 1]);
+        const thisWeek = new Date(weeks[i]);
+        const gap = Math.round((prevWeek.getTime() - thisWeek.getTime()) / (7 * 86400000));
+        if (gap !== 1) break; // gap in weeks
+      }
+      streak++;
+    } else {
+      break;
+    }
+  }
+
+  return streak;
 }
 
 export function useStorage() {
@@ -67,7 +122,15 @@ export function useStorage() {
     const saved = localStorage.getItem("gym-tracker-state");
     if (saved) {
       try {
-        setState(JSON.parse(saved));
+        const parsed = JSON.parse(saved);
+        // Migrate old logs without type
+        if (parsed.workoutLogs) {
+          parsed.workoutLogs = parsed.workoutLogs.map((l: WorkoutLog) => ({
+            ...l,
+            type: l.type || "main",
+          }));
+        }
+        setState(parsed);
       } catch {
         // ignore parse errors
       }
@@ -97,7 +160,7 @@ export function useStorage() {
     (exerciseName: string): ExerciseHistory[] => {
       const history: ExerciseHistory[] = [];
       for (const log of state.workoutLogs) {
-        if (!log.completed) continue;
+        if (!log.completed || log.type === "recovery") continue;
         for (const ex of log.exercises) {
           const name = ex.exerciseName || findExerciseName(ex.exerciseId);
           if (name === exerciseName) {
@@ -115,75 +178,86 @@ export function useStorage() {
     [state.workoutLogs]
   );
 
+  // How many main workouts this week (Mon-Sun)
+  const getThisWeekMainCount = useCallback(() => {
+    const currentWeek = getWeekKey(new Date().toISOString());
+    return state.workoutLogs.filter(
+      (l) => l.completed && l.type !== "recovery" && getWeekKey(l.date) === currentWeek
+    ).length;
+  }, [state.workoutLogs]);
+
   const completeWorkout = useCallback(
     (log: WorkoutLog) => {
       setState((prev) => {
-        const today = new Date().toISOString().split("T")[0];
+        const allLogs = [...prev.workoutLogs, log];
+        const newStreak = calculateWeekStreak(allLogs);
 
-        // Streak: allow up to 3 days gap (3x/week schedule)
-        let newStreak: number;
-        if (!prev.lastWorkoutDate) {
-          newStreak = 1;
+        const mainLogs = allLogs.filter((l) => l.completed && l.type !== "recovery");
+        const completedCount = mainLogs.length;
+
+        let earnedXp: number;
+        if (log.type === "recovery") {
+          earnedXp = log.totalXp || 10; // recovery XP is pre-set
         } else {
-          const gap = daysBetween(prev.lastWorkoutDate, today);
-          if (gap <= MAX_STREAK_GAP_DAYS) {
-            newStreak = prev.streak + 1;
-          } else {
-            newStreak = 1; // streak broken
-          }
-        }
+          earnedXp = 25;
+          earnedXp += Math.min(newStreak, 10) * 5; // streak bonus capped
 
-        const completedCount = prev.workoutLogs.filter((w) => w.completed).length + 1;
-        let earnedXp = 25; // base XP per workout (slower progression)
-        earnedXp += Math.min(newStreak, 10) * 5; // streak bonus, capped
+          // Check weight progression by exercise NAME
+          let newWeightUps = prev.weightUps;
+          for (const ex of log.exercises) {
+            const name = ex.exerciseName;
+            if (!name || !ex.actualWeight) continue;
 
-        // Check weight progression by exercise NAME
-        let newWeightUps = prev.weightUps;
-        for (const ex of log.exercises) {
-          const name = ex.exerciseName;
-          if (!name || !ex.actualWeight) continue;
+            const prevEntries: { weight: string }[] = [];
+            for (const prevLog of prev.workoutLogs) {
+              if (!prevLog.completed || prevLog.type === "recovery") continue;
+              for (const prevEx of prevLog.exercises) {
+                const prevName = prevEx.exerciseName || findExerciseName(prevEx.exerciseId);
+                if (prevName === name) {
+                  prevEntries.push({ weight: prevEx.actualWeight });
+                }
+              }
+            }
 
-          // Find last time this exercise was done (by name)
-          const prevEntries: { weight: string }[] = [];
-          for (const prevLog of prev.workoutLogs) {
-            if (!prevLog.completed) continue;
-            for (const prevEx of prevLog.exercises) {
-              const prevName = prevEx.exerciseName || findExerciseName(prevEx.exerciseId);
-              if (prevName === name) {
-                prevEntries.push({ weight: prevEx.actualWeight });
+            if (prevEntries.length > 0) {
+              const lastWeight = prevEntries[prevEntries.length - 1].weight;
+              if (lastWeight && ex.actualWeight > lastWeight) {
+                newWeightUps++;
+                earnedXp += 10;
               }
             }
           }
 
-          if (prevEntries.length > 0) {
-            const lastWeight = prevEntries[prevEntries.length - 1].weight;
-            if (lastWeight && ex.actualWeight > lastWeight) {
-              newWeightUps++;
-              earnedXp += 10;
+          // Check achievements (only for main workouts)
+          const newUnlocked = [...prev.unlockedAchievements];
+          for (const ach of achievements) {
+            if (!newUnlocked.includes(ach.id) && ach.condition(completedCount, newStreak, newWeightUps)) {
+              newUnlocked.push(ach.id);
+              earnedXp += ach.xp;
             }
           }
+
+          const nextDay = (log.day % 12) + 1;
+
+          return {
+            ...prev,
+            currentDay: nextDay,
+            xp: prev.xp + earnedXp,
+            streak: newStreak,
+            lastWorkoutDate: new Date().toISOString().split("T")[0],
+            workoutLogs: [...prev.workoutLogs, { ...log, totalXp: earnedXp }],
+            unlockedAchievements: newUnlocked,
+            weightUps: newWeightUps,
+          };
         }
 
-        // Check achievements
-        const newUnlocked = [...prev.unlockedAchievements];
-        for (const ach of achievements) {
-          if (!newUnlocked.includes(ach.id) && ach.condition(completedCount, newStreak, newWeightUps)) {
-            newUnlocked.push(ach.id);
-            earnedXp += ach.xp;
-          }
-        }
-
-        const nextDay = (log.day % 12) + 1;
-
+        // Recovery workout — simpler path
         return {
           ...prev,
-          currentDay: nextDay,
           xp: prev.xp + earnedXp,
           streak: newStreak,
-          lastWorkoutDate: today,
+          lastWorkoutDate: new Date().toISOString().split("T")[0],
           workoutLogs: [...prev.workoutLogs, { ...log, totalXp: earnedXp }],
-          unlockedAchievements: newUnlocked,
-          weightUps: newWeightUps,
         };
       });
     },
@@ -194,7 +268,7 @@ export function useStorage() {
     setState(DEFAULT_STATE);
   }, []);
 
-  return { state, loaded, getLevel, getExerciseHistory, completeWorkout, resetProgress };
+  return { state, loaded, getLevel, getExerciseHistory, getThisWeekMainCount, completeWorkout, resetProgress };
 }
 
 function findExerciseName(exerciseId: string): string {
